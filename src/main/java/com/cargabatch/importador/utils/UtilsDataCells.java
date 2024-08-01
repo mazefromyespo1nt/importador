@@ -84,13 +84,26 @@ public class UtilsDataCells {
         Cell cell = row.getCell(cellIndex);
         return obtenerValorCeldaComoString(cell);
     }
-
     public int getCellIntValue(Row row, int cellIndex) {
         Cell cell = row.getCell(cellIndex);
         if (cell == null || cell.getCellType() != CellType.NUMERIC) {
-            throw new IllegalStateException("La celda no contiene un valor numérico.");
+            throw new IllegalArgumentException("La celda no es válida o no contiene un valor numérico");
         }
         return (int) cell.getNumericCellValue();
+    }
+
+    public int obtenerValorCeldaComoInt(Cell cell) {
+        if (cell != null && cell.getCellType() == CellType.NUMERIC) {
+            return (int) cell.getNumericCellValue();
+        }
+        throw new IllegalStateException("La celda no contiene un valor numérico");
+    }
+
+    public float obtenerValorCeldaComoFloat(Cell cell) {
+        if (cell != null && cell.getCellType() == CellType.NUMERIC) {
+            return (float) cell.getNumericCellValue();
+        }
+        throw new IllegalStateException("La celda no contiene un valor numérico");
     }
 
     public boolean validarFormatoTexto(String texto, String regex) {
@@ -105,6 +118,7 @@ public class UtilsDataCells {
         if (cell == null) {
             return false;
         }
+
         switch (validationType) {
             case VALIDATE_NON_EMPTY:
                 return cell.getCellType() != CellType.BLANK;
@@ -113,12 +127,15 @@ public class UtilsDataCells {
             case VALIDATE_TEXT:
                 return cell.getCellType() == CellType.STRING;
             case VALIDATE_DATE:
-                return DateUtil.isCellDateFormatted(cell);
+                return cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell);
             case VALIDATE_EMAIL:
-                return cell.getCellType() == CellType.STRING && cell.getStringCellValue().matches("^[A-Za-z0-9+_.-]+@(.+)$");
+                // Implementa la lógica de validación de email
+                return cell.getCellType() == CellType.STRING && cell.getStringCellValue().matches("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$");
             case VALIDATE_PHONE:
-                return cell.getCellType() == CellType.NUMERIC && cell.getNumericCellValue() >= 1000000 && cell.getNumericCellValue() <= 9999999999L;
+                // Implementa la lógica de validación de teléfono
+                return cell.getCellType() == CellType.NUMERIC && String.valueOf((long) cell.getNumericCellValue()).matches("\\d{10}");
             case VALIDATE_CUSTOM:
+                // Implementa lógica de validación personalizada
                 return true;
             default:
                 return false;

@@ -1,7 +1,10 @@
 package com.cargabatch.importador.controller;
 import com.cargabatch.importador.exceptions.UsuarioServiceException;
+import com.cargabatch.importador.services.ArchivosCargadosService;
+import com.cargabatch.importador.services.ProductosService;
 import com.cargabatch.importador.services.SucursalesService;
 import com.cargabatch.importador.services.UsuarioService;
+import com.cargabatch.importador.utils.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -23,14 +26,15 @@ public class CargaArchivoController {
     private final String rutaArchivo;
     private final SucursalesService sucursalesService;
     private final UsuarioService usuarioService;
-
+    private final ProductosService productosService;
 
     @Autowired
-    public CargaArchivoController(SucursalesService sucursalesService, @Value("${ruta.yalgo}") String rutaArchivo, UsuarioService usuarioService) {
-
+    public CargaArchivoController(
+            SucursalesService sucursalesService, @Value("${ruta.yalgo}") String rutaArchivo, UsuarioService usuarioService, ProductosService productosService) {
         this.rutaArchivo = rutaArchivo;
         this.sucursalesService = sucursalesService;
         this.usuarioService = usuarioService;
+        this.productosService = productosService;
     }
 
 
@@ -49,7 +53,7 @@ public class CargaArchivoController {
     @PostMapping("/cargaUsu")
     public ResponseEntity<Integer> CargaUsu() throws IOException {
         //File file = new File(rutaArchivo+"/LAYOUTS_GYM_05232024.xlsx");
-        InputStream inp = new FileInputStream("/LAYOUTS_GYM_05232024U.xlsx");
+        InputStream inp = new FileInputStream("/LAYOUTS_GYM_0523202411.xlsx");
         var usuarioList = usuarioService.procesarArchivoExcel(inp);
 
         //System.out.println(sucursalesList);
@@ -57,6 +61,22 @@ public class CargaArchivoController {
 
         return ResponseEntity.status(HttpStatus.OK).body(2);
     }
+
+
+
+
+    @PostMapping("/cargaProductos")
+    public ResponseEntity<Integer> CargaProductos() throws IOException {
+
+
+
+        var productosList = productosService.procesarArchivoExcel();
+
+
+        return ResponseEntity.status(HttpStatus.OK).body(2);
+    }
+
+
 
 
 
