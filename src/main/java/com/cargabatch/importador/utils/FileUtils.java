@@ -1,20 +1,26 @@
 package com.cargabatch.importador.utils;
 
-import com.cargabatch.importador.entitys.Sucursales;
-import com.cargabatch.importador.entitys.Usuario;
+import com.cargabatch.importador.entitys.*;
 import com.cargabatch.importador.exceptions.UsuarioServiceException;
+import com.cargabatch.importador.repositorys.ArchivoCargadosRepository;
+import com.cargabatch.importador.repositorys.InvocacionPBatchRepository;
 import com.cargabatch.importador.services.SucursalesService;
 import com.cargabatch.importador.services.UsuarioService;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
 
 
 @Component
@@ -23,12 +29,16 @@ public class FileUtils {
     private final UtilsDataCells utilsDataCells;
     private final UsuarioService usuarioService;
     private final SucursalesService sucursalesService;
+    private final ArchivoCargadosRepository archivoCargadosRepository;
+    private final InvocacionPBatchRepository invocacionPBatchRepository;
 
     @Autowired
-    public FileUtils(UtilsDataCells utilsDataCells, UsuarioService usuarioService, SucursalesService sucursalesService) {
+    public FileUtils(UtilsDataCells utilsDataCells, UsuarioService usuarioService, SucursalesService sucursalesService, ArchivoCargadosRepository archivoCargadosRepository, InvocacionPBatchRepository invocacionPBatchRepository) {
         this.utilsDataCells = utilsDataCells;
         this.usuarioService = usuarioService;
         this.sucursalesService = sucursalesService;
+        this.archivoCargadosRepository = archivoCargadosRepository;
+        this.invocacionPBatchRepository = invocacionPBatchRepository;
     }
 
     public List<Sucursales> processSucursalesExcelFile(InputStream inputStream) throws IOException {
@@ -58,7 +68,7 @@ public class FileUtils {
         try {
             String nombre = utilsDataCells.getCellStringValue(row, 2);
             String direccion = utilsDataCells.getCellStringValue(row, 3);
-            int capacidad = utilsDataCells.getCellIntValue(row, 4);
+            int capacidad = utilsDataCells.obtenerValorCeldaComoInt(row.getCell(4));
 
             // Validar datos
             if (!utilsDataCells.validarFormatoTexto(nombre, "^[a-zA-Z\\s]+$") ||
@@ -139,4 +149,75 @@ public class FileUtils {
         }
         return usuario;
     }
+
+
+    public List<Productos> processProductosExcelFile(InputStream inputStream) throws IOException {
+        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<Productos> productosList = new ArrayList<>();
+
+            for (Row row : sheet) {
+                if (utilsDataCells.esFilaVacia(row)) continue;
+
+                // Asumiendo que las columnas están en el orden: Nombre, Descripción, Código, CantidadTotal, PrecioVenta, TipoProductoId, Capacidad
+                String nombre = utilsDataCells.obtenerValorCeldaComoString(row.getCell(2));
+                String descripcion = utilsDataCells.obtenerValorCeldaComoString(row.getCell(3));
+                int codigo = utilsDataCells.obtenerValorCeldaComoInt(row.getCell(4));
+                int cantidadTotal = utilsDataCells.obtenerValorCeldaComoInt(row.getCell(5));
+                float precioVenta = utilsDataCells.obtenerValorCeldaComoFloat(row.getCell(6));
+                int tipoProductoId = utilsDataCells.obtenerValorCeldaComoInt(row.getCell(7));
+
+                Productos producto = new Productos();
+                producto.setNombre(nombre);
+                producto.setDescripcion(descripcion);
+                producto.setCodigo(codigo);
+                producto.setCantidadTotal(cantidadTotal);
+                producto.setPrecioVenta(precioVenta);
+                producto.setTipoProductoId(tipoProductoId);
+                producto.setProveedorId(0);
+                producto.setFechaRegistro(new Date());
+                producto.setFechaModificacion(new Date());
+                producto.setUsuarioId(0);
+                producto.setStatus(true);
+
+                productosList.add(producto);
+            }
+
+            return productosList;
+        }
+    }
+
+    public InputStream readFileByPath(String filePath) throws FileNotFoundException {
+        try {
+            var fileInputStream = new FileInputStream(filePath);
+
+            Path path = Paths.get(filePath);
+
+            var archivosCargados= new ArchivosCargados();
+            var fileName = path.getFileName().toString();
+            archivosCargados.setNombreArchivo(fileName);
+            archivosCargados.setRuta(filePath);
+            archivosCargados.setExtArchivo(fileName.substring(fileName.lastIndexOf(".")));
+            archivosCargados.setFechaRegistro(new Date());
+            archivosCargados.setStatus(true);
+           var archivocargado= archivoCargadosRepository.save(archivosCargados);
+
+           var invocacionProcesso = new InvocacionProcessoBatch();
+           var fileNameInv = path.getFileName().toString();
+           invocacionProcesso.setFechaProceso(new Date());
+           invocacionProcesso.setIdArchivo(archivocargado.getIdArchivoCarga());
+           invocacionProcesso.setTipoProceso(InvocacionProcessoBatch.TipoProceso.tipo1);
+           invocacionProcesso.setFechaRegistro(new Date());
+           invocacionProcesso.setNoRegistrosProcesados(invocacionProcesso.getNoRegistrosProcesados());
+           invocacionProcesso.setStatus(true);
+           var invocacionprocesado = invocacionPBatchRepository.save(invocacionProcesso);
+
+
+            return fileInputStream;
+        } catch (Exception exception) {
+            System.err.println("Error al leer el archivo: " + exception.getMessage());
+            throw new FileNotFoundException(filePath);
+        }
+    }
+
 }

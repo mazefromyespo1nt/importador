@@ -5,6 +5,7 @@ import java.util.Date;
 
 public class DataSheetUserDTO {
     private int idUsuario;
+
     private String nombre;
     private String apellido;
     private String email;
